@@ -268,7 +268,10 @@ function DayCard({ date, loc, weather, weatherError, marine, marineError, tidesL
   const pressure = pressureVals.length ? Math.round(pressureVals.reduce((a,b)=>a+b,0)/pressureVals.length) : null;
   const sst      = sstVals.length      ? (sstVals.reduce((a,b)=>a+b,0)/sstVals.length).toFixed(1)          : null;
 
-  const rainColor = rain > 5 ? "#d05050" : rain > 1 ? "#c8900a" : "#3a8050";
+  const windColor  = windMax == null ? "#d4dce8" : windMax < 15  ? "#3a8050" : windMax > 20  ? "#d05050" : "#d4dce8";
+  const rainColor  = rain    == null ? "#d4dce8" : rain    < 1   ? "#3a8050" : rain    > 5   ? "#d05050" : "#d4dce8";
+  const seaColor   = waveHeight  == null ? "#d4dce8" : waveHeight  <= 1 ? "#3a8050" : waveHeight  > 1.5 ? "#d05050" : "#d4dce8";
+  const swellColor = swellHeight == null ? "#d4dce8" : swellHeight <= 1 ? "#3a8050" : swellHeight > 1.5 ? "#d05050" : "#d4dce8";
 
   return (
     <div style={{background:"linear-gradient(160deg,#0d1525 0%,#070e1a 100%)",border:"1px solid #192840",borderRadius:"4px",padding:"14px",paddingBottom:"18px",height:"100%",display:"flex",flexDirection:"column",overflow:"hidden"}}>
@@ -284,7 +287,7 @@ function DayCard({ date, loc, weather, weatherError, marine, marineError, tidesL
         {weatherError
           ? <div style={{fontSize:"0.73rem",color:"#8a3030"}}>⚠ {weatherError}</div>
           : <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"12px"}}>
-              <DataCell label="Range" src={OPENMETEO_W} value={windMin!=null?`${windMin}–${windMax}`:"—"} unit="km/h" />
+              <DataCell label="Range" src={OPENMETEO_W} value={windMin!=null?<span style={{color:windColor}}>{windMin}–{windMax}</span>:"—"} unit="km/h" />
               <DataCell label="Dir"   src={OPENMETEO_W} value={<span style={{display:"inline-flex",alignItems:"center"}}>{degToCompass(windDir)}<WindArrow deg={windDir}/></span>} />
               <DataCell label="Rain"  src={OPENMETEO_W} value={<span style={{color:rainColor}}>{rain!=null?rain.toFixed(1):"—"}</span>} unit="mm" />
             </div>
@@ -300,8 +303,8 @@ function DayCard({ date, loc, weather, weatherError, marine, marineError, tidesL
         {marineError
           ? <div style={{fontSize:"0.73rem",color:"#8a3030"}}>⚠ {marineError}</div>
           : <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"12px"}}>
-              <DataCell label="Sea"   src={OPENMETEO_M} value={waveHeight!=null?waveHeight.toFixed(1):"—"} unit="m" />
-              <DataCell label="Swell" src={OPENMETEO_M} value={swellHeight!=null?swellHeight.toFixed(1):"—"} unit="m" />
+              <DataCell label="Sea"   src={OPENMETEO_M} value={waveHeight!=null?<span style={{color:seaColor}}>{waveHeight.toFixed(1)}</span>:"—"} unit="m" />
+              <DataCell label="Swell" src={OPENMETEO_M} value={swellHeight!=null?<span style={{color:swellColor}}>{swellHeight.toFixed(1)}</span>:"—"} unit="m" />
               <DataCell label="Dir"   src={OPENMETEO_M} value={degToCompass(swellDir)} />
             </div>
         }
@@ -374,7 +377,7 @@ function App() {
       localStorage.removeItem("ph_current_trip");
     } else {
       // Start trip
-      const trip = { id: Date.now(), startTime: new Date().toISOString(), location: loc.short };
+      const _now = new Date(); const _dd = String(_now.getDate()).padStart(2,'0'); const _mm = String(_now.getMonth()+1).padStart(2,'0'); const _yyyy = _now.getFullYear(); const trip = { id: `${_dd}${_mm}${_yyyy}`, startTime: _now.toISOString(), location: loc.short };
       setTripActive(true);
       setTripStart(Date.now());
       setTripElapsed(0);
