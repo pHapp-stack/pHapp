@@ -448,8 +448,49 @@ function App() {
     });
   }
 
+  function getConditions() {
+    const now = new Date();
+    const hourKey = `${fmt(now)}T${String(now.getHours()).padStart(2,"0")}:00`;
+
+    // Hourly weather
+    const wh = weather[locKey]?.hourly;
+    const wIdx = wh?.time?.indexOf(hourKey) ?? -1;
+    const pressure  = wIdx >= 0 && wh.pressure_msl?.[wIdx]   != null ? Math.round(wh.pressure_msl[wIdx])   : null;
+    const windSpeed = wIdx >= 0 && wh.wind_speed_10m?.[wIdx]  != null ? Math.round(wh.wind_speed_10m[wIdx]) : null;
+
+    // Daily wind direction (only daily data available)
+    const wd = weather[locKey]?.daily;
+    const wdIdx = wd?.time?.indexOf(fmt(now)) ?? -1;
+    const windDir = wdIdx >= 0 ? degToCompass(wd.wind_direction_10m_dominant?.[wdIdx] ?? null) : null;
+
+    // Hourly sea surface temp
+    const mh = marine[locKey]?.hourly;
+    const mIdx = mh?.time?.indexOf(hourKey) ?? -1;
+    const waterTemp = mIdx >= 0 && mh.sea_surface_temperature?.[mIdx] != null
+      ? parseFloat(mh.sea_surface_temperature[mIdx].toFixed(1)) : null;
+
+    // Interpolated tide height (cosine between bracketing events)
+    let tideHeight = null;
+    const todayTides = tideData[`${locKey}::${fmt(now)}`] || [];
+    if (todayTides.length >= 2) {
+      const withDt = todayTides
+        .map(t => ({...t, dt: parseTideTime(t.time, now)}))
+        .filter(t => t.dt)
+        .sort((a,b) => a.dt - b.dt);
+      const prev = [...withDt].reverse().find(t => t.dt <= now);
+      const next = withDt.find(t => t.dt > now);
+      if (prev && next) {
+        const ratio = (now - prev.dt) / (next.dt - prev.dt);
+        tideHeight = parseFloat((prev.height + (next.height - prev.height) * (1 - Math.cos(Math.PI * ratio)) / 2).toFixed(2));
+      }
+    }
+
+    return { pressure, windSpeed, windDir, waterTemp, tideHeight };
+  }
+
   async function confirmCatch() {
     const coords = await getCoords();
+    const cond  = getConditions();
     const entry = {
       id: Date.now(),
       time: new Date().toISOString(),
@@ -463,9 +504,11 @@ function App() {
       lat: coords?.lat ?? null,
       lng: coords?.lng ?? null,
       conditions: {
-        pressure: null,
-        waterTemp: null,
-        wind: null,
+        pressure:   cond.pressure,
+        waterTemp:  cond.waterTemp,
+        windSpeed:  cond.windSpeed,
+        windDir:    cond.windDir,
+        tideHeight: cond.tideHeight,
       }
     };
     const updated = [entry, ...catches];
@@ -491,9 +534,14 @@ function App() {
   }
 
   function exportCSV() {
-    const rows = [["Time","Species","Length (cm)","Location","Trip ID","Lat","Lng"]];
+    const rows = [["Time","Species","Length (cm)","Location","Trip ID","Lat","Lng","Pressure (hPa)","Water Temp (C)","Wind (km/h)","Wind Dir","Tide Height (m)"]];
     catches.forEach(c => {
-      rows.push([c.time, c.species, c.length ?? "", c.loc, c.tripId ?? "", c.lat ?? "", c.lng ?? ""]);
+      const cd = c.conditions || {};
+      rows.push([
+        c.time, c.species, c.length ?? "", c.loc, c.tripId ?? "",
+        c.lat ?? "", c.lng ?? "",
+        cd.pressure ?? "", cd.waterTemp ?? "", cd.windSpeed ?? "", cd.windDir ?? "", cd.tideHeight ?? ""
+      ]);
     });
     const csv = rows.map(r => r.join(",")).join("\n");
     const a = document.createElement("a");
