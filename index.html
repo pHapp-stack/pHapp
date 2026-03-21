@@ -665,7 +665,7 @@ function App() {
     const wMax = windVals.length ? Math.round(Math.max(...windVals)) : null;
     const mIdx = mh?.daily?.time?.indexOf(key) ?? -1;
     const swell = mIdx >= 0 ? mh.daily.swell_wave_height_max?.[mIdx] ?? null : null;
-    if ((wMax != null && wMax > 40) || (swell >2.5 || swell > 2.5)) {
+    if ((wMax != null && wMax > 40) || (sea >2.5 || swell > 2.5)) {
       setShowCinnamon(true); setCinnamonKey(k => k+1);
     }
   }, [locKey, fmt(date), weather, marine]);
